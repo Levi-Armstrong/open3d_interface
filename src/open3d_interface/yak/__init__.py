@@ -18,12 +18,13 @@ from message_filters import ApproximateTimeSynchronizer, Subscriber
 from open3d_interface.utility.file import make_clean_folder, write_pose, read_pose, save_intrinsic_as_json
 from open3d_interface.srv import StartYakReconstruction, StopYakReconstruction
 from open3d_interface.srv import StartYakReconstructionResponse, StopYakReconstructionResponse
-from open3d_interface.utility.ros import getIntrinsicsFromMsg
+from open3d_interface.utility.ros import getIntrinsicsFromMsg, meshToRos
 
 # ROS Image message -> OpenCV2 image converter
 from cv_bridge import CvBridge, CvBridgeError
 # OpenCV2 for saving an image
 import cv2
+from visualization_msgs.msg import Marker
 
 bridge = CvBridge()
 
@@ -57,6 +58,7 @@ prev_pose_tran = np.array([0.0, 0.0, 0.0])
 tsdf_integration_data = deque()
 integration_done = True
 live_integration = False
+mesh_pub = None
 
 record = False
 frame_count = 0
@@ -133,6 +135,9 @@ def stopYakReconstructionCallback(req):
   mesh.compute_vertex_normals()
   mesh_filepath = join(req.results_directory, "integrated.ply")
   o3d.io.write_triangle_mesh(mesh_filepath, mesh, False, True)
+  # triangles = mesh.GetTriangleAttr()
+  print(np.asarray(mesh.vertices))
+  print(np.asarray(mesh.triangles))
   print("Mesh Generated")
 
   if (req.archive_directory != ""):
@@ -147,7 +152,7 @@ def stopYakReconstructionCallback(req):
 def cameraCallback(depth_image_msg, rgb_image_msg):
   global frame_count, processed_frame_count, record, tracking_frame, relative_frame, tf_listener
   global color_images, depth_images, rgb_poses, intrinsics, prev_pose_rot, prev_pose_tran
-  global tsdf_integration_data, live_integration, integration_done
+  global tsdf_integration_data, live_integration, integration_done, mesh_pub
 
   if record:
     try:
@@ -190,9 +195,14 @@ def cameraCallback(depth_image_msg, rgb_image_msg):
               rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(data[1], data[0], depth_scale, depth_trunc, False)
               tsdf_volume.integrate(rgbd, intrinsics, np.linalg.inv(rgb_pose))
               integration_done = True
+              if processed_frame_count % 50 == 0:
+                  mesh = tsdf_volume.extract_triangle_mesh()
+                  mesh_msg = meshToRos(mesh)
+                  mesh_msg.header.stamp = rospy.get_rostime()
+                  mesh_msg.header.frame_id = relative_frame
+                  mesh_pub.publish(mesh_msg)
             else:
               tsdf_integration_data.append([data[0], data[1], rgb_pose])
-
             processed_frame_count += 1
 
         frame_count += 1
@@ -213,7 +223,7 @@ def timerReconstruction(timer):
     integration_done = True
 
 def main():
-  global camera_info_topic, tf_listener, tracking_frame, world_frame
+  global camera_info_topic, tf_listener, tracking_frame, world_frame, mesh_pub
 
   rospy.init_node('open3d_tsdf_rgb_recorder', anonymous=True)
 
@@ -238,6 +248,8 @@ def main():
   tss.registerCallback(cameraCallback)
 
   rospy.Timer(rospy.Duration(0.5), timerReconstruction)
+
+  mesh_pub = rospy.Publisher("open3d_mesh", Marker, queue_size=10)
 
   start_server = rospy.Service('start_reconstruction', StartYakReconstruction, startYakReconstructionCallback)
   stop_server = rospy.Service('stop_reconstruction', StopYakReconstruction, stopYakReconstructionCallback)
