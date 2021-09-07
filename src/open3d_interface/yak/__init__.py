@@ -63,6 +63,7 @@ mesh_pub = None
 record = False
 frame_count = 0
 processed_frame_count = 0
+reconstructed_frame_count = 0
 
 
 def archiveData(path_output):
@@ -102,6 +103,7 @@ def startYakReconstructionCallback(req):
 
   frame_count = 0
   processed_frame_count = 0
+  reconstructed_frame_count = 0
 
   tsdf_volume = o3d.pipelines.integration.ScalableTSDFVolume(
       voxel_length=req.tsdf_params.voxel_length,
@@ -122,7 +124,7 @@ def startYakReconstructionCallback(req):
 
 def stopYakReconstructionCallback(req):
   global record, tsdf_volume, depth_images, color_images, rgb_poses, depth_scale, depth_trunc, intrinsics
-  global integration_done
+  global integration_done, relative_frame
 
   rospy.loginfo(rospy.get_caller_id() + ": Stop Reconstruction")
   record = False
@@ -135,9 +137,10 @@ def stopYakReconstructionCallback(req):
   mesh.compute_vertex_normals()
   mesh_filepath = join(req.results_directory, "integrated.ply")
   o3d.io.write_triangle_mesh(mesh_filepath, mesh, False, True)
-  # triangles = mesh.GetTriangleAttr()
-  print(np.asarray(mesh.vertices))
-  print(np.asarray(mesh.triangles))
+  mesh_msg = meshToRos(mesh)
+  mesh_msg.header.stamp = rospy.get_rostime()
+  mesh_msg.header.frame_id = relative_frame
+  mesh_pub.publish(mesh_msg)
   print("Mesh Generated")
 
   if (req.archive_directory != ""):
@@ -162,6 +165,7 @@ def cameraCallback(depth_image_msg, rgb_image_msg):
         cv2_rgb_img = bridge.imgmsg_to_cv2(rgb_image_msg, "bgr8")
     except CvBridgeError:
         print(e)
+        return
     else:
         # Get camera intrinsic from camera info
         if frame_count == 0:
@@ -171,7 +175,10 @@ def cameraCallback(depth_image_msg, rgb_image_msg):
         sensor_data.append([o3d.geometry.Image(cv2_depth_img), o3d.geometry.Image(cv2_rgb_img), rgb_image_msg.header.stamp])
         if (frame_count > 30):
           data = sensor_data.popleft()
-          (rgb_t,rgb_r) = tf_listener.lookupTransform(relative_frame, tracking_frame, data[2])
+          try:
+              (rgb_t,rgb_r) = tf_listener.lookupTransform(relative_frame, tracking_frame, data[2])
+          except:
+              return
           rgb_t = np.array(rgb_t)
           rgb_r = np.array(rgb_r)
 
@@ -209,7 +216,7 @@ def cameraCallback(depth_image_msg, rgb_image_msg):
 
 def timerReconstruction(timer):
   global depth_scale, depth_trunc, convert_rgb_to_intensity
-  global tsdf_integration_data, integration_done
+  global tsdf_integration_data, integration_done, processed_frame_count, reconstructed_frame_count
   integrating_queue = False
   while len(tsdf_integration_data) > 0:
       integrating_queue = True
@@ -218,6 +225,13 @@ def timerReconstruction(timer):
       data = tsdf_integration_data.popleft()
       rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(data[1], data[0], depth_scale, depth_trunc, False)
       tsdf_volume.integrate(rgbd, intrinsics, np.linalg.inv(data[2]))
+      reconstructed_frame_count += 1
+      if reconstructed_frame_count % 150 == 0:
+          mesh = tsdf_volume.extract_triangle_mesh()
+          mesh_msg = meshToRos(mesh)
+          mesh_msg.header.stamp = rospy.get_rostime()
+          mesh_msg.header.frame_id = relative_frame
+          mesh_pub.publish(mesh_msg)
   if integrating_queue:
     print("Integration done")
     integration_done = True
