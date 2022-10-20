@@ -9,6 +9,7 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(catkin REQUIRED COMPONENTS
   message_generation
   std_msgs
+  visualization_msgs
 )
 
 catkin_python_setup()
@@ -36,11 +37,13 @@ add_service_files(
 generate_messages(
   DEPENDENCIES
     std_msgs
+    visualization_msgs
 )
 
 catkin_package(
   CATKIN_DEPENDS
     message_runtime
+    visualization_msgs
     std_msgs)
 
 include_directories(include ${catkin_INCLUDE_DIRS})
