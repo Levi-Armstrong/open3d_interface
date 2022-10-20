@@ -1,5 +1,7 @@
 string archive_directory # If not empty it will dump rgb, depth, poses and intrinsics to this directory
-string results_directory # The directory to save the generated mesh
+string results_directory  # If not empty, the generated mesh will be saved to this file
+bool return_mesh_marker  # If true, return the mesh as a marker too
 ---
 bool success
 string mesh_filepath # The filepath to the saved mesh
+visualization_msgs/Marker mesh_marker
