@@ -131,7 +131,7 @@ def runTSDFReconstructionCallback(req):
 def runReconstructionSystemCallback(req):
   rospy.loginfo(rospy.get_caller_id() + "Reconstructing Surface")
 
-  if not req.make and not req.register and not req.refine and not req.integrate:
+  if not req.make and not req.register_fragments and not req.refine and not req.integrate:
      return ReconstructSurfaceResponse(False)
 
   config = {}
@@ -168,7 +168,7 @@ def runReconstructionSystemCallback(req):
       import open3d_interface.reconstruction.make_fragments as make_fragments
       make_fragments.run(config)
       times[0] = time.time() - start_time
-  if req.register:
+  if req.register_fragments:
       start_time = time.time()
       import open3d_interface.reconstruction.register_fragments as register_fragments
       register_fragments.run(config)
