@@ -269,9 +269,9 @@ def main():
 
   rospy.Timer(rospy.Duration(0.5), timerReconstruction)
 
-  mesh_pub = rospy.Publisher("open3d_mesh", Marker, queue_size=10)
+  mesh_pub = rospy.Publisher("~open3d_mesh", Marker, queue_size=10)
 
-  start_server = rospy.Service('start_reconstruction', StartYakReconstruction, startYakReconstructionCallback)
-  stop_server = rospy.Service('stop_reconstruction', StopYakReconstruction, stopYakReconstructionCallback)
+  start_server = rospy.Service('~start_reconstruction', StartYakReconstruction, startYakReconstructionCallback)
+  stop_server = rospy.Service('~stop_reconstruction', StopYakReconstruction, stopYakReconstructionCallback)
 
   rospy.spin()

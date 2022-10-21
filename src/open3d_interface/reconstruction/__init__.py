@@ -199,7 +199,7 @@ def runReconstructionSystemCallback(req):
 def main():
   rospy.init_node('open3d_reconstruction', anonymous=True)
 
-  reconstruction_system_server = rospy.Service('run_reconstruction_system', RunReconstructionSystem, runReconstructionSystemCallback)
-  tsdf_reconstruction_server = rospy.Service('run_tsdf_reconstruction', RunTSDFReconstruction, runTSDFReconstructionCallback)
+  reconstruction_system_server = rospy.Service('~run_reconstruction_system', RunReconstructionSystem, runReconstructionSystemCallback)
+  tsdf_reconstruction_server = rospy.Service('~run_tsdf_reconstruction', RunTSDFReconstruction, runTSDFReconstructionCallback)
 
   rospy.spin()

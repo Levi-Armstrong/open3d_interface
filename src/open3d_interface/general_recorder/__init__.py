@@ -137,7 +137,7 @@ def main():
   tss = ApproximateTimeSynchronizer([depth_sub, rgb_sub], cache_count, slop, allow_headerless)
   tss.registerCallback(cameraCallback)
 
-  start_server = rospy.Service('start_recording', StartRecording, startRecordingCallback)
-  stop_server = rospy.Service('stop_recording', StopRecording, stopRecordingCallback)
+  start_server = rospy.Service('~start_recording', StartRecording, startRecordingCallback)
+  stop_server = rospy.Service('~stop_recording', StopRecording, stopRecordingCallback)
 
   rospy.spin()
