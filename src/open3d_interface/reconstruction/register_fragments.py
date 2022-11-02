@@ -111,13 +111,16 @@ def register_point_cloud_pair(ply_file_names, s, t, config):
     print("reading %s ..." % ply_file_names[s])
     source = o3d.io.read_point_cloud(ply_file_names[s])
     print("reading %s ..." % ply_file_names[t])
-    target = o3d.io.read_point_cloud(ply_file_names[t])
-    (source_down, source_fpfh) = preprocess_point_cloud(source, config)
-    (target_down, target_fpfh) = preprocess_point_cloud(target, config)
-    (success, transformation, information) = \
-            compute_initial_registration(
-            s, t, source_down, target_down,
-            source_fpfh, target_fpfh, config["path_dataset"], config)
+    try:
+        target = o3d.io.read_point_cloud(ply_file_names[t])
+        (source_down, source_fpfh) = preprocess_point_cloud(source, config)
+        (target_down, target_fpfh) = preprocess_point_cloud(target, config)
+        (success, transformation, information) = \
+                compute_initial_registration(
+                s, t, source_down, target_down,
+                source_fpfh, target_fpfh, config["path_dataset"], config)
+    except:
+        print("compute_initial_registration threw an exception")
     if t != s + 1 and not success:
         return (False, np.identity(4), np.identity(6))
     if config["debug_mode"]:
@@ -164,17 +167,23 @@ def make_posegraph_for_scene(ply_file_names, config):
             matching_results[r].information = results[i][2]
     else:
         for r in matching_results:
-            (matching_results[r].success, matching_results[r].transformation,
-                    matching_results[r].information) = \
-                    register_point_cloud_pair(ply_file_names,
-                    matching_results[r].s, matching_results[r].t, config)
+            try:
+                (matching_results[r].success, matching_results[r].transformation,
+                        matching_results[r].information) = \
+                        register_point_cloud_pair(ply_file_names,
+                        matching_results[r].s, matching_results[r].t, config)
+            except:
+                print("Transformation failed")
 
     for r in matching_results:
         if matching_results[r].success:
-            (odometry, pose_graph) = update_posegraph_for_scene(
-                matching_results[r].s, matching_results[r].t,
-                matching_results[r].transformation,
-                matching_results[r].information, odometry, pose_graph)
+            try:
+                (odometry, pose_graph) = update_posegraph_for_scene(
+                    matching_results[r].s, matching_results[r].t,
+                    matching_results[r].transformation,
+                    matching_results[r].information, odometry, pose_graph)
+            except:
+                print("Update posegraph failed")
     o3d.io.write_pose_graph(
         join(config["path_dataset"], config["template_global_posegraph"]),
         pose_graph)
